@@ -5,6 +5,7 @@ import { dstr, type Profile, type Pair, type Cycle, type WeightRecord } from "./
 const KEY = "pairdiet_state_v1";
 
 export interface AppState {
+  onboarded: boolean;              // オンボード完了フラグ（未完了なら/onboardingへ）
   profile: Profile | null;
   pair: Pair | null;
   cycle: Cycle | null;
@@ -26,6 +27,7 @@ function seed(): AppState {
     records.push({ date: dstr(d), ts: d.getTime(), weightKg: +(70 - i * 0.06).toFixed(1), retakes: i % 5 === 0 ? 1 : 0 });
   }
   return {
+    onboarded: false,
     profile: { nickname: "たかや", sex: "m", height: 172, weight: 70, goal: 63, cycleTarget: 2 },
     pair: { name: "モカ", emoji: "🐻", reason: "結婚式で昔の服を着たい。", status: "active", startDate: startStr },
     cycle: { startDate: dstr(new Date(today.getTime() - 12 * 864e5)), startWeight: 68.2, targetLoss: 2, judged: false },
@@ -38,6 +40,7 @@ function seed(): AppState {
 
 interface Ctx {
   state: AppState;
+  loaded: boolean;                 // AsyncStorage読み込み完了（ゲート判定に使用）
   set: (patch: Partial<AppState>) => void;
   today: () => string;
   reset: () => void;
@@ -62,7 +65,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const today = useCallback(() => dstr(new Date(Date.now() + state.debugDayOffset * 864e5)), [state.debugDayOffset]);
   const reset = useCallback(() => setState(seed()), []);
 
-  return <StoreContext.Provider value={{ state, set, today, reset }}>{children}</StoreContext.Provider>;
+  return <StoreContext.Provider value={{ state, loaded, set, today, reset }}>{children}</StoreContext.Provider>;
 }
 
 export function useStore(): Ctx {
