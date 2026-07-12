@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "PairDiet",
+    "slug": "pairdiet",
+    "scheme": "pairdiet",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.example.pairdiet",
+      "infoPlist": {
+        "NSCameraUsageDescription": "体重計の数字を撮影して相棒と共有するために使います。"
+      }
+    },
+    "android": {
+      "package": "com.example.pairdiet",
+      "permissions": ["CAMERA"]
+    },
+    "plugins": [
+      "expo-router",
+      ["expo-camera", { "cameraPermission": "体重計の数字の撮影に使います。" }]
+    ],
+    "experiments": { "typedRoutes": true }
+  }
+}
