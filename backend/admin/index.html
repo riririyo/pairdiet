@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PairDiet 運営 — 通報パトロール</title>
+<style>
+  :root{--accent:#5b4bd6;--soft:#efedff;--ink:#141126;--sub:#7b7a90;--line:#e9e8f0;--card:#f6f5fb;--bad:#e5484d;--ok:#12b76a;--warn:#f5a524;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;background:#eef0f4;color:var(--ink);line-height:1.5;}
+  .wrap{max-width:960px;margin:0 auto;padding:24px 18px 60px;}
+  header{display:flex;align-items:center;gap:10px;margin-bottom:18px;}
+  header h1{font-size:20px;font-weight:800;}
+  header .dot{width:10px;height:10px;border-radius:50%;background:#c7ccd6;}
+  header .dot.on{background:var(--ok);}
+  .conn{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:18px;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end;}
+  .field{flex:1;min-width:220px;}
+  label{display:block;font-size:12px;font-weight:700;color:var(--sub);margin-bottom:5px;}
+  input[type=text],input[type=password]{width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:11px;font-size:14px;background:#fff;}
+  input:focus{outline:none;border-color:var(--accent);}
+  button{font-family:inherit;font-weight:800;border:none;border-radius:11px;padding:11px 16px;cursor:pointer;font-size:14px;transition:.12s;}
+  button:active{transform:scale(.97);}
+  .primary{background:var(--accent);color:#fff;}
+  .ghost{background:var(--soft);color:#3a2f9e;}
+  .ban{background:var(--bad);color:#fff;padding:7px 13px;font-size:13px;}
+  .dismiss{background:#eef0f4;color:var(--sub);padding:7px 13px;font-size:13px;}
+  .unban{background:#fff;color:var(--ok);border:1.5px solid var(--ok);padding:6px 12px;font-size:12px;}
+  .tabs{display:flex;gap:8px;margin:6px 0 14px;}
+  .tab{background:#fff;border:1.5px solid var(--line);border-radius:20px;padding:8px 16px;font-weight:700;font-size:13px;color:var(--sub);cursor:pointer;}
+  .tab.sel{background:var(--soft);border-color:var(--accent);color:#3a2f9e;}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:10px;}
+  .card.res{opacity:.55;}
+  .card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+  .who{font-weight:800;font-size:15px;}
+  .who small{font-weight:600;color:var(--sub);font-size:12px;}
+  .reason{background:var(--card);border-radius:10px;padding:10px 12px;margin:10px 0;font-size:14px;white-space:pre-wrap;word-break:break-word;}
+  .meta{font-size:12px;color:var(--sub);}
+  .pill{display:inline-block;font-size:11px;font-weight:800;border-radius:20px;padding:2px 9px;margin-left:6px;}
+  .pill.active{background:#e9f9ee;color:var(--ok);}
+  .pill.banned{background:#fdeaea;color:var(--bad);}
+  .pill.resolved{background:#eef0f4;color:var(--sub);}
+  .actions{display:flex;gap:8px;margin-top:10px;}
+  .empty{text-align:center;color:var(--sub);padding:40px 0;font-size:14px;}
+  .msg{padding:10px 14px;border-radius:11px;font-size:13px;font-weight:700;margin-bottom:12px;display:none;}
+  .msg.err{background:#fdeaea;color:var(--bad);display:block;}
+  .msg.ok{background:#e9f9ee;color:var(--ok);display:block;}
+  .hint{font-size:12px;color:var(--sub);margin-top:8px;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><span class="dot" id="dot"></span><h1>PairDiet 運営 — 通報パトロール</h1></header>
+
+  <div class="conn">
+    <div class="row">
+      <div class="field">
+        <label>API のURL（Workers）</label>
+        <input type="text" id="apiBase" placeholder="https://pairdiet-api.あなた.workers.dev" />
+      </div>
+      <div class="field">
+        <label>管理トークン（ADMIN_TOKEN）</label>
+        <input type="password" id="token" placeholder="wrangler secret put で設定した値" />
+      </div>
+      <button class="primary" onclick="connect()">接続</button>
+    </div>
+    <div class="hint">この2つはこの端末にだけ保存されます（サーバーには送りません）。トークンは他人に見せないこと。<span id="whoami"></span></div>
+  </div>
+
+  <div class="msg" id="msg"></div>
+
+  <div class="tabs">
+    <div class="tab sel" id="tab-open" onclick="show('open')">未対応の通報</div>
+    <div class="tab" id="tab-all" onclick="show('all')">すべての通報</div>
+    <div class="tab" id="tab-banned" onclick="show('banned')">BAN済みユーザー</div>
+    <button class="ghost" style="margin-left:auto" onclick="reload()">🔄 更新</button>
+  </div>
+
+  <div id="list"></div>
+</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let state = { reports: [], banned: [], view: "open", connected: false };
+
+  // 端末に保存（運営者本人のブラウザのみ）
+  const saved = { base: localStorage.getItem("pd_api") || "", token: localStorage.getItem("pd_tok") || "" };
+  $("apiBase").value = saved.base; $("token").value = saved.token;
+
+  function headers(){ return { "content-type": "application/json", "authorization": "Bearer " + $("token").value.trim() }; }
+  function base(){ return $("apiBase").value.trim().replace(/\/$/, ""); }
+
+  function flash(text, kind){ const m = $("msg"); m.textContent = text; m.className = "msg " + kind; if(kind==="ok") setTimeout(()=>{ m.className="msg"; }, 2500); }
+
+  async function api(path, method="GET", body){
+    const res = await fetch(base()+path, { method, headers: headers(), body: body?JSON.stringify(body):undefined });
+    if(res.status===401) throw new Error("トークンが違います（401）");
+    if(!res.ok) throw new Error("エラー "+res.status);
+    return res.json();
+  }
+
+  async function connect(){
+    if(!base()){ flash("APIのURLを入力してください", "err"); return; }
+    localStorage.setItem("pd_api", base()); localStorage.setItem("pd_tok", $("token").value.trim());
+    await reload();
+  }
+
+  async function reload(){
+    try{
+      const [r, u] = await Promise.all([ api("/admin/reports"), api("/admin/users") ]);
+      state.reports = r.reports || []; state.banned = u.users || [];
+      state.connected = true; $("dot").className = "dot on";
+      $("whoami").textContent = " ・接続中：未対応 " + state.reports.filter(x=>!x.resolved).length + " 件 / BAN " + state.banned.length + " 人";
+      flash("読み込みました", "ok");
+      render();
+    }catch(e){ state.connected=false; $("dot").className="dot"; flash(String(e.message||e), "err"); }
+  }
+
+  function show(v){ state.view=v; ["open","all","banned"].forEach(k=>$("tab-"+k).className = "tab"+(k===v?" sel":"")); render(); }
+
+  function esc(s){ return String(s==null?"":s).replace(/[&<>]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+  function shortId(id){ return id ? String(id).slice(0,8) : "―"; }
+  function when(ts){ if(!ts) return ""; const d=new Date(ts); return d.toLocaleString("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}); }
+
+  function render(){
+    const el = $("list");
+    if(!state.connected){ el.innerHTML = '<div class="empty">上のフォームでAPIのURLと管理トークンを入れて「接続」してください。</div>'; return; }
+
+    if(state.view==="banned"){
+      if(!state.banned.length){ el.innerHTML = '<div class="empty">BAN済みのユーザーはいません。</div>'; return; }
+      el.innerHTML = state.banned.map(u => `
+        <div class="card">
+          <div class="top">
+            <div><span class="who">${esc(u.nickname)||"（無名）"} <small>#${shortId(u.id)}</small></span><span class="pill banned">banned</span></div>
+            <button class="unban" onclick="unban('${esc(u.id)}')">BAN解除</button>
+          </div>
+          <div class="meta">登録：${when(u.created_at)}</div>
+        </div>`).join("");
+      return;
+    }
+
+    let rows = state.reports;
+    if(state.view==="open") rows = rows.filter(r=>!r.resolved);
+    if(!rows.length){ el.innerHTML = '<div class="empty">'+(state.view==="open"?"未対応の通報はありません 🎉":"通報はありません。")+'</div>'; return; }
+
+    el.innerHTML = rows.map(r => `
+      <div class="card ${r.resolved?"res":""}">
+        <div class="top">
+          <div>
+            <span class="who">通報対象：${esc(r.target_name)||"（無名）"} <small>#${shortId(r.target_id)}</small></span>
+            <span class="pill ${r.target_status==="banned"?"banned":"active"}">${r.target_status||"active"}</span>
+            ${r.resolved?'<span class="pill resolved">対応済み</span>':''}
+          </div>
+          <div class="meta">${when(r.created_at)}</div>
+        </div>
+        <div class="reason">${esc(r.reason)||"（理由の記載なし）"}</div>
+        <div class="meta">通報者：${esc(r.reporter_name)||"（無名）"} <small>#${shortId(r.reporter_id)}</small></div>
+        ${r.resolved ? "" : `<div class="actions">
+          <button class="ban" onclick="ban('${esc(r.target_id)}','${esc(r.target_name)||""}')">このユーザーをBAN</button>
+          <button class="dismiss" onclick="resolve('${esc(r.id)}')">問題なし（解決）</button>
+        </div>`}
+      </div>`).join("");
+  }
+
+  async function ban(id, name){
+    if(!confirm("「"+(name||shortId(id))+"」をBANします。よろしいですか？\n（このユーザーはマッチング不可になり、関連する通報は対応済みになります）")) return;
+    try{ await api("/admin/ban","POST",{ targetId:id }); flash("BANしました", "ok"); await reload(); }
+    catch(e){ flash(String(e.message||e), "err"); }
+  }
+  async function unban(id){
+    if(!confirm("このユーザーのBANを解除します。よろしいですか？")) return;
+    try{ await api("/admin/unban","POST",{ targetId:id }); flash("BANを解除しました", "ok"); await reload(); }
+    catch(e){ flash(String(e.message||e), "err"); }
+  }
+  async function resolve(id){
+    try{ await api("/admin/resolve","POST",{ reportId:id }); flash("解決にしました", "ok"); await reload(); }
+    catch(e){ flash(String(e.message||e), "err"); }
+  }
+
+  // 保存済みがあれば自動接続
+  if(saved.base && saved.token){ connect(); } else { render(); }
+</script>
+</body>
+</html>
