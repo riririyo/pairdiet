@@ -4,9 +4,10 @@ compatibility_date = "2024-09-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "pairdiet"
-database_id = "REPLACE_AFTER_CREATE"
-[[r2_buckets]]
-binding = "PHOTOS"
-bucket_name = "pairdiet-photos"
+database_id = "b7c2754b-d85d-46f5-8890-1cfbf1c152b0"
+# R2は写真保存用。使うときに下3行のコメントを外し、R2バケットpairdiet-photosを作成する
+# [[r2_buckets]]
+# binding = "PHOTOS"
+# bucket_name = "pairdiet-photos"
 [triggers]
 crons = ["5 0 * * *"]
