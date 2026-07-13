@@ -1,7 +1,7 @@
 // PairDiet API (Cloudflare Workers + D1 + R2). ロジック核: matching.ts / penalty.ts
 import { pickMatch, type QUser } from "./matching.ts";
 import { penaltyState } from "./penalty.ts";
-export interface Env { DB: D1Database; PHOTOS: R2Bucket; ADMIN_TOKEN: string; }
+export interface Env { DB: D1Database; PHOTOS?: R2Bucket; ADMIN_TOKEN: string; }
 const json = (d: unknown, s = 200) => new Response(JSON.stringify(d), { status: s, headers: { "content-type": "application/json" } });
 const uid = () => crypto.randomUUID();
 const today = (tz = "Asia/Tokyo") => new Date().toLocaleDateString("sv-SE", { timeZone: tz });
@@ -32,6 +32,7 @@ export default {
         if (req.method === "POST" && p === "/admin/ban") return adminBan(req, env);
         if (req.method === "POST" && p === "/admin/unban") return adminUnban(req, env);
         if (req.method === "POST" && p === "/admin/resolve") return adminResolve(req, env);
+        if (req.method === "POST" && p === "/admin/migrate") return adminMigrate(env);
         return ajson({ error: "not found" }, 404);
       }
       if (req.method === "POST" && p === "/register") return register(req, env);
@@ -69,7 +70,7 @@ async function enqueue(req: Request, env: Env) {
 }
 async function record(req: Request, env: Env) {
   const b = await req.json<any>(); const key = `${b.cycleId}/${b.userId}/${today()}.jpg`;
-  if (b.photoBase64) await env.PHOTOS.put(key, Uint8Array.from(atob(b.photoBase64), c => c.charCodeAt(0)));
+  if (b.photoBase64 && env.PHOTOS) await env.PHOTOS.put(key, Uint8Array.from(atob(b.photoBase64), c => c.charCodeAt(0)));
   await env.DB.prepare(`INSERT OR REPLACE INTO records(id,cycle_id,user_id,date,ts,photo_key,weight_kg) VALUES(?,?,?,?,?,?,?)`).bind(uid(), b.cycleId, b.userId, today(), Date.now(), key, b.weightKg ?? null).run();
   return json({ ok: true, photoKey: key });
 }
@@ -120,6 +121,25 @@ async function adminResolve(req: Request, env: Env) {
   if (!id) return ajson({ error: "reportId required" }, 400);
   await env.DB.prepare(`UPDATE reports SET resolved=1 WHERE id=?`).bind(id).run();
   return ajson({ ok: true, resolvedId: id });
+}
+
+// スキーマ投入（管理トークン必須・冪等）。デプロイ後に1回だけ叩けばテーブルが揃う。
+async function adminMigrate(env: Env) {
+  const stmts = [
+    "CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY, auth_sub TEXT UNIQUE, nickname TEXT, sex TEXT, over18 INTEGER, height_cm REAL, weight_start_kg REAL, goal_weight_kg REAL, reason_text TEXT, tz TEXT, created_at INTEGER, status TEXT DEFAULT 'active')",
+    "CREATE TABLE IF NOT EXISTS tickets(id TEXT PRIMARY KEY, user_id TEXT, type TEXT, price_yen INTEGER, discount_rate REAL, store_receipt_id TEXT, state TEXT DEFAULT 'unused', expires_at INTEGER, created_at INTEGER)",
+    "CREATE TABLE IF NOT EXISTS match_queue(user_id TEXT PRIMARY KEY, sex TEXT, over18 INTEGER, height_cm REAL, weight_kg REAL, cycle_target_kg REAL, enqueued_at INTEGER)",
+    "CREATE TABLE IF NOT EXISTS pairs(id TEXT PRIMARY KEY, user_a TEXT, user_b TEXT, status TEXT, started_at INTEGER, expires_at INTEGER, dissolved_at INTEGER, dissolve_loser_id TEXT)",
+    "CREATE TABLE IF NOT EXISTS cycles(id TEXT PRIMARY KEY, pair_id TEXT, user_id TEXT, day_count INTEGER DEFAULT 30, start_weight_kg REAL, target_loss_kg REAL, end_weight_kg REAL, progress_rate REAL, result TEXT, started_at INTEGER, ended_at INTEGER)",
+    "CREATE TABLE IF NOT EXISTS records(id TEXT PRIMARY KEY, cycle_id TEXT, user_id TEXT, date TEXT, ts INTEGER, photo_key TEXT, weight_kg REAL, on_time INTEGER, UNIQUE(cycle_id, user_id, date))",
+    "CREATE TABLE IF NOT EXISTS claps(pair_id TEXT, from_id TEXT, date TEXT, n INTEGER, PRIMARY KEY(pair_id, from_id, date))",
+    "CREATE TABLE IF NOT EXISTS messages(id TEXT PRIMARY KEY, pair_id TEXT, sender_id TEXT, body TEXT, created_at INTEGER)",
+    "CREATE TABLE IF NOT EXISTS reports(id TEXT PRIMARY KEY, reporter_id TEXT, target_id TEXT, message_id TEXT, reason TEXT, created_at INTEGER, resolved INTEGER DEFAULT 0)",
+    "CREATE TABLE IF NOT EXISTS blocks(user_id TEXT, blocked_id TEXT, PRIMARY KEY(user_id, blocked_id))",
+    "CREATE TABLE IF NOT EXISTS penalty_log(id TEXT PRIMARY KEY, user_id TEXT, cycle_id TEXT, consecutive_missed INTEGER, state TEXT, created_at INTEGER)",
+  ];
+  for (const q of stmts) await env.DB.prepare(q).run();
+  return ajson({ ok: true, tables: stmts.length });
 }
 
 async function dailyBatch(env: Env) {
