@@ -11,6 +11,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useStore } from "@/store";
@@ -28,6 +29,8 @@ const PAIN_OPTS: [string, string, string][] = [
   ["🙈", "知り合いに知られたくない", "誰にも知られず"],
   ["🎯", "今度こそ、結果を出したい", "今度こそ結果を"],
 ];
+
+const GREEN_GRAD = ["#12b76a", "#3ddc91"];
 
 export default function Onboarding() {
   const insets = useSafeAreaInsets();
@@ -137,17 +140,18 @@ export default function Onboarding() {
               <Text style={d.badgeText}>🌿 続けた人、66% 🌿</Text>
             </View>
             <View style={d.hero}>
-              <View style={d.hcard}>
+              <LinearGradient
+                colors={["#d9d3ff", "#7b6ff0", "#4a3fb0"]}
+                start={{ x: 0.2, y: 0.1 }}
+                end={{ x: 0.9, y: 1 }}
+                style={d.hcard}
+              >
                 <View style={d.tagTop}>
                   <Text style={d.tagTextAccent}>👏 今日も記録</Text>
                 </View>
                 <View style={d.avp}>
-                  <View style={[d.avc, { backgroundColor: "#fff" }]}>
-                    <Text style={{ fontSize: 30 }}>🧑</Text>
-                  </View>
-                  <View style={[d.avc, d.avcDark]}>
-                    <Text style={{ fontSize: 30 }}>🧑</Text>
-                  </View>
+                  <Avatar />
+                  <Avatar dark />
                   <View style={d.qm}>
                     <Text style={{ color: OC.accent, fontWeight: "800", fontSize: 14 }}>?</Text>
                   </View>
@@ -155,7 +159,7 @@ export default function Onboarding() {
                 <View style={d.tagBottom}>
                   <Text style={d.tagText}>-2.4kg</Text>
                 </View>
-              </View>
+              </LinearGradient>
             </View>
             <Text style={d.h1}>知らない一人と、{"\n"}ダイエット。</Text>
             <Text style={d.sub}>痩せるまで、逃げられない相棒ができる。顔も名前も出さずに、毎日つづく。</Text>
@@ -210,7 +214,7 @@ export default function Onboarding() {
             <Text style={d.sub}>続く人は、相棒がいただけ。</Text>
             <View style={d.bars}>
               <BarRow label="ひとりで" labelColor={OC.sub} value="24%" valueColor={OC.sub} pct={24} color="#c7ccd6" />
-              <BarRow label="相棒と" labelColor={OC.ok} value="66%" valueColor={OC.ok} pct={66} color={OC.ok} />
+              <BarRow label="相棒と" labelColor={OC.ok} value="66%" valueColor={OC.ok} pct={66} colors={GREEN_GRAD} />
             </View>
             <Text style={d.sub}>
               仲間と挑んだ人は半年後も<Text style={d.bold}>66%</Text>が成果をキープ。ひとりでは<Text style={d.bold}>24%</Text>。
@@ -313,11 +317,7 @@ export default function Onboarding() {
       // 8: 安心（相棒は1人）
       case 8:
         return (
-          <InfoStep
-            icon="💬"
-            title={"相棒は、あなたと\n同じ体重のひとり"}
-            onNext={next}
-          >
+          <InfoStep icon="💬" title={"相棒は、あなたと\n同じ体重のひとり"} onNext={next}>
             あなたの体重を見るのは、同じ体重帯の<Text style={d.bold}>たった1人</Text>だけ。顔も本名も出ません。
           </InfoStep>
         );
@@ -325,11 +325,7 @@ export default function Onboarding() {
       // 9: カメラ説明
       case 9:
         return (
-          <InfoStep
-            icon="📷"
-            title={"好きな時間に、\n体重計の数字を撮影"}
-            onNext={next}
-          >
+          <InfoStep icon="📷" title={"好きな時間に、\n体重計の数字を撮影"} onNext={next}>
             アプリ内カメラでその場撮影。<Text style={d.bold}>数字以外が写っても</Text>、送る前にスタンプで隠せます。
           </InfoStep>
         );
@@ -376,7 +372,7 @@ export default function Onboarding() {
             <Text style={d.h1}>払った人ほど、{"\n"}続く。</Text>
             <Text style={d.sub}>お金を賭けて他人と約束した人の達成率は、そうでない人の約5倍。</Text>
             <View style={d.bars}>
-              <BarRow label="賭けた人" labelColor={OC.ok} value="5倍" valueColor={OC.ok} pct={100} color={OC.ok} />
+              <BarRow label="賭けた人" labelColor={OC.ok} value="5倍" valueColor={OC.ok} pct={100} colors={GREEN_GRAD} />
               <BarRow label="賭けない人" labelColor={OC.sub} value="1倍" valueColor={OC.sub} pct={20} color="#c7ccd6" />
             </View>
             <Text style={d.src}>コミットメント契約研究の引用。効果を保証するものではありません。</Text>
@@ -451,6 +447,17 @@ function InfoStep({
   );
 }
 
+// 顔を出さない相棒＝匿名シルエット（頭＋肩）
+function Avatar({ dark }: { dark?: boolean }) {
+  const c = dark ? "#fff" : OC.accent2;
+  return (
+    <View style={[d.avc, dark ? d.avcDark : d.avcLight]}>
+      <View style={[d.avHead, { backgroundColor: c }]} />
+      <View style={[d.avBody, { backgroundColor: c }]} />
+    </View>
+  );
+}
+
 function BarRow({
   label,
   labelColor,
@@ -458,13 +465,15 @@ function BarRow({
   valueColor,
   pct,
   color,
+  colors,
 }: {
   label: string;
   labelColor: string;
   value: string;
   valueColor: string;
   pct: number;
-  color: string;
+  color?: string;
+  colors?: string[];
 }) {
   return (
     <View>
@@ -472,12 +481,12 @@ function BarRow({
         <Text style={[d.blLabel, { color: labelColor }]}>{label}</Text>
         <Text style={[d.blValue, { color: valueColor }]}>{value}</Text>
       </View>
-      <AnimatedBar pct={pct} color={color} />
+      <AnimatedBar pct={pct} color={color} colors={colors} />
     </View>
   );
 }
 
-function AnimatedBar({ pct, color }: { pct: number; color: string }) {
+function AnimatedBar({ pct, color, colors }: { pct: number; color?: string; colors?: string[] }) {
   const w = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(w, {
@@ -490,7 +499,13 @@ function AnimatedBar({ pct, color }: { pct: number; color: string }) {
   const width = w.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] });
   return (
     <View style={d.btk}>
-      <Animated.View style={[d.bf, { backgroundColor: color, width }]} />
+      <Animated.View style={{ width, height: "100%" }}>
+        {colors ? (
+          <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={d.barFill} />
+        ) : (
+          <View style={[d.barFill, { backgroundColor: color ?? OC.ok }]} />
+        )}
+      </Animated.View>
     </View>
   );
 }
@@ -557,29 +572,62 @@ function Drum({
           </View>
         ))}
       </ScrollView>
+      <LinearGradient colors={["#ffffff", "rgba(255,255,255,0)"]} style={d.fadeTop} pointerEvents="none" />
+      <LinearGradient colors={["rgba(255,255,255,0)", "#ffffff"]} style={d.fadeBottom} pointerEvents="none" />
     </View>
   );
 }
 
+// 体重計（現在）＝光沢のあるアナログ筐体＋緑発光ディスプレイ
 function RealScale({ value }: { value: number }) {
   return (
-    <View style={d.scaleReal}>
+    <LinearGradient colors={["#fdfdff", "#e9edf3"]} start={{ x: 0.2, y: 0 }} end={{ x: 0.8, y: 1 }} style={d.scaleReal}>
+      <LinearGradient
+        colors={["rgba(255,255,255,0.85)", "rgba(255,255,255,0)"]}
+        style={d.scaleGloss}
+        pointerEvents="none"
+      />
       <View style={d.dispDark}>
         <Text style={d.dispGreen}>
           {value.toFixed(1)}
           <Text style={d.dispGreenUnit}> kg</Text>
         </Text>
       </View>
-    </View>
+      <View style={d.feet}>
+        <View style={d.foot} />
+        <View style={d.foot} />
+      </View>
+    </LinearGradient>
   );
 }
 
+// 体重計（目標）＝暗い筐体＋回転するグラデリング（ネイティブドライバ）
 function FutureScale({ value }: { value: number }) {
+  const spin = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(spin, { toValue: 1, duration: 8000, easing: Easing.linear, useNativeDriver: true })
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [spin]);
+  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
   return (
-    <View style={d.scaleFuture}>
-      <Text style={d.futureNum}>{value.toFixed(1)}</Text>
-      <Text style={d.futureUnit}>KG</Text>
-    </View>
+    <LinearGradient colors={["#232d4d", "#111528"]} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={d.scaleFuture}>
+      <Animated.View style={[d.ring, { transform: [{ rotate }] }]}>
+        <LinearGradient
+          colors={["#ff5a3c", "#ff8a4b", "#6a8bff", "#ff5a3c"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={d.ringGrad}
+        />
+      </Animated.View>
+      <View style={d.ringMask} />
+      <View style={d.futureDisp}>
+        <Text style={d.futureNum}>{value.toFixed(1)}</Text>
+        <Text style={d.futureUnit}>KG</Text>
+      </View>
+    </LinearGradient>
   );
 }
 
@@ -642,7 +690,6 @@ const d = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 42,
-    backgroundColor: "#7b6ff0",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -652,9 +699,13 @@ const d = StyleSheet.create({
     height: 80,
     borderRadius: 40,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-end",
+    overflow: "hidden",
   },
+  avcLight: { backgroundColor: "#fff" },
   avcDark: { backgroundColor: "#0d0f14", marginLeft: -20 },
+  avHead: { width: 28, height: 28, borderRadius: 14, marginBottom: 3 },
+  avBody: { width: 50, height: 30, borderTopLeftRadius: 25, borderTopRightRadius: 25 },
   qm: {
     position: "absolute",
     top: -2,
@@ -714,7 +765,7 @@ const d = StyleSheet.create({
   blLabel: { fontSize: 13, fontWeight: "700" },
   blValue: { fontSize: 22, fontWeight: "800", letterSpacing: -0.5 },
   btk: { height: 15, backgroundColor: "#eef0f4", borderRadius: 10, overflow: "hidden" },
-  bf: { height: "100%", borderRadius: 10 },
+  barFill: { flex: 1, borderRadius: 10 },
 
   // ご褒美
   rewardLead: { color: OC.accent, fontWeight: "800", fontSize: 13 },
@@ -745,11 +796,13 @@ const d = StyleSheet.create({
   sheet: { backgroundColor: "#fff", borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: 24, paddingTop: 26, paddingBottom: 40 },
 
   // ドラム
-  drumWrap: { height: 160, marginTop: 2, justifyContent: "center" },
+  drumWrap: { height: 160, marginTop: 2, justifyContent: "center", overflow: "hidden" },
   band: { position: "absolute", top: 60, left: 14, right: 14, height: 40, borderRadius: 12, backgroundColor: OC.soft },
   wiWrap: { height: ITEM, alignItems: "center", justifyContent: "center" },
   wi: { fontSize: 22, fontWeight: "700", color: OC.sub },
   wiMid: { color: OC.accent, fontSize: 26, fontWeight: "800" },
+  fadeTop: { position: "absolute", top: 0, left: 0, right: 0, height: 56 },
+  fadeBottom: { position: "absolute", bottom: 0, left: 0, right: 0, height: 56 },
 
   // 体重計（現在）
   scaleWrap: { alignItems: "center", justifyContent: "center", minHeight: 200 },
@@ -757,25 +810,47 @@ const d = StyleSheet.create({
     width: 184,
     height: 184,
     borderRadius: 34,
-    backgroundColor: "#e9edf3",
     alignItems: "center",
     justifyContent: "center",
   },
+  scaleGloss: { position: "absolute", top: 14, left: 14, right: 14, height: 54, borderRadius: 18 },
   dispDark: { backgroundColor: "#0e1512", borderRadius: 14, paddingHorizontal: 20, paddingVertical: 12 },
-  dispGreen: { fontFamily: "Courier New", fontSize: 40, fontWeight: "800", color: "#6dfca0", letterSpacing: 2 },
+  dispGreen: {
+    fontFamily: "Courier New",
+    fontSize: 40,
+    fontWeight: "800",
+    color: "#6dfca0",
+    letterSpacing: 2,
+    textShadowColor: "rgba(80,252,150,0.55)",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
+  },
   dispGreenUnit: { color: "#3f9c63", fontSize: 14, fontWeight: "700" },
+  feet: { position: "absolute", bottom: -8, left: 28, right: 28, flexDirection: "row", justifyContent: "space-between" },
+  foot: { width: 34, height: 8, backgroundColor: "#c3c9d4", borderBottomLeftRadius: 7, borderBottomRightRadius: 7 },
 
   // 体重計（目標・未来）
   scaleFuture: {
     width: 184,
     height: 184,
     borderRadius: 92,
-    backgroundColor: "#1a2140",
-    borderWidth: 2,
-    borderColor: "rgba(120,150,255,0.35)",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
-  futureNum: { fontFamily: "Courier New", fontSize: 44, fontWeight: "800", color: "#fff", letterSpacing: 2 },
+  ring: { position: "absolute", top: 10, left: 10, right: 10, bottom: 10, borderRadius: 82, overflow: "hidden" },
+  ringGrad: { flex: 1 },
+  ringMask: { position: "absolute", top: 20, left: 20, right: 20, bottom: 20, borderRadius: 72, backgroundColor: "#141830" },
+  futureDisp: { alignItems: "center" },
+  futureNum: {
+    fontFamily: "Courier New",
+    fontSize: 44,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: 2,
+    textShadowColor: "rgba(255,120,90,0.85)",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 16,
+  },
   futureUnit: { color: "#9db0e0", fontSize: 12, fontWeight: "700", letterSpacing: 3, marginTop: 2 },
 });
